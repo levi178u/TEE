@@ -1,36 +1,25 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth.config";
+import { prisma } from "@/lib/prisma";
+import path from "path";
 
-// For Next.js Route Handlers, the context includes route params
 export async function GET(req: Request, context: { params: { repo: string } } | { params: Promise<{ repo: string }> }) {
   const session = await auth();
   const token = session?.accessToken;
 
-  if (!token) {
-    return NextResponse.json({ error: "Unauthorized: No GitHub token found" }, { status: 401 });
-  }
+  if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // Unwrap params if it's a Promise (Next.js 14+)
-  let repo: string;
-  if (context.params instanceof Promise) {
-    const params = await context.params;
-    repo = params.repo;
-  } else {
-    repo = context.params.repo;
-  }
+  const resolvedParams = context.params instanceof Promise ? await context.params : context.params;
+  const repo = resolvedParams.repo;
 
-  // Parse query params: owner (required), path (optional), ref (optional)
   const { searchParams } = new URL(req.url);
   const owner = searchParams.get("owner");
-  const path = searchParams.get("path") || ""; // Empty path means repo root
+  const filePath = searchParams.get("path") || "";
   const ref = searchParams.get("ref") || "main";
 
-  if (!owner) {
-    return NextResponse.json({ error: "Missing ?owner=OWNER in query" }, { status: 400 });
-  }
+  if (!owner) return NextResponse.json({ error: "Missing owner" }, { status: 400 });
 
-  // Construct the GitHub API URL
-  const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}?ref=${encodeURIComponent(ref)}`;
+  const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(filePath)}?ref=${encodeURIComponent(ref)}`;
 
   try {
     const response = await fetch(apiUrl, {
@@ -39,33 +28,51 @@ export async function GET(req: Request, context: { params: { repo: string } } | 
         Accept: "application/vnd.github.v3+json",
       },
     });
+
     if (!response.ok) {
       const err = await response.json();
-      return NextResponse.json({ error: err.message || "Failed to fetch content" }, { status: response.status });
+      return NextResponse.json({ error: err.message }, { status: response.status });
     }
 
     const data = await response.json();
 
-    // If it's a file, decode base64. If it's an array (folder), return as is.
-    if (Array.isArray(data)) {
-      return NextResponse.json({ type: "dir", contents: data });
-    } else if (data.type === "file") {
-      let decodedContent = "";
-      if (data.content) {
-        decodedContent = Buffer.from(data.content, "base64").toString("utf8");
+    if (data.type === "file") {
+      const decodedContent = Buffer.from(data.content, "base64").toString("utf8");
+
+      // Ensure a parent 'Code' record exists for this repo to maintain the relationship
+      let codeRecord = await prisma.code.findFirst({
+        where: { repoName: `${owner}/${repo}` }
+      });
+
+      if (!codeRecord) {
+        codeRecord = await prisma.code.create({
+          data: {
+            repoName: `${owner}/${repo}`,
+            amount: 0, // Default or placeholder amount
+          }
+        });
       }
+
+      const storedFile = await prisma.codeBase.create({
+        data: {
+          filename: data.name,
+          language: path.extname(data.name).slice(1) || "text",
+          route: data.path,
+          text: decodedContent,
+          codeId: codeRecord.id,
+        }
+      });
+
       return NextResponse.json({
         type: "file",
-        name: data.name,
-        path: data.path,
-        encoding: data.encoding,
+        dbId: storedFile.id,
         content: decodedContent,
       });
-    } else {
-      // Could be symlink, submodule, etc.
-      return NextResponse.json(data);
     }
+
+    return NextResponse.json(data);
   } catch (error) {
+    console.error("GitHub Fetch Error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

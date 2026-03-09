@@ -8,7 +8,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized: No GitHub token found" }, { status: 401 });
   }
   try {
-    const response = await fetch("https://api.github.com/user/repos?sort=updated&per_page=100", {
+    const response = await fetch("https://api.github.com/user/repos?sort=updated", {
       headers: {
         Authorization: `Bearer ${token}`,
         Accept: "application/vnd.github.v3+json",

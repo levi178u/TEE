@@ -93,9 +93,20 @@ model VerificationToken {
 }
 
 model Code {
-  id        String   @id @default(uuid())
+  id        String     @id @default(uuid())
   repoName  String
   amount    Float
-  code      String   @db.Text
+  codeBases CodeBase[]
+  createdAt DateTime   @default(now())
+}
+
+model CodeBase {
+  id        String   @id @default(uuid())
+  language  String   
+  filename  String   
+  route     String   
+  text      String   @db.Text 
+  codeId    String   // Foreign key to relate to Code model
+  code      Code     @relation(fields: [codeId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 }
