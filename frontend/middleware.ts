@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
-import { setAccessTokenCookie } from "@/lib/accessTokenCookie";
 
 // Paths that require authentication
 const protectedPaths = ["/dashboard", "/repository", "/chat"];
@@ -30,14 +29,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Set github_access_token cookie if accessToken is present in session
-  const token = await getToken({ req: request, secret: process.env.AUTH_SECRET });
-  let response = NextResponse.next();
-  if (token && token.accessToken) {
-    const cookie = setAccessTokenCookie(token.accessToken);
-    response.headers.append("Set-Cookie", cookie);
-  }
-  return response;
+  // No need to set github_access_token cookie; session will handle accessToken
+  return NextResponse.next();
 }
 
 export const config = {

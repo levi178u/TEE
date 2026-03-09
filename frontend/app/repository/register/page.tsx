@@ -4,51 +4,43 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { Github, PlusCircle, MessageSquare } from "lucide-react";
+import { JSX } from "react/jsx-runtime";
 
 
+interface Repository {
+	id: number;
+	name: string;
+	full_name: string;
+	[key: string]: any;
+}
 
 function RegisterRepositoryPageInner() {
-	const { data: session } = useSession();
-	// Ensure github_access_token cookie is set for API routes
-	useEffect(() => {
-		if (typeof window === 'undefined') return;
-		if (session?.user?.accessToken) {
-			// Call backend to set httpOnly cookie
-			fetch("/api/auth/post-login", {
-				method: "POST",
-				credentials: "include"
-			});
-		}
-	}, [session?.user?.accessToken]);
-	const [repos, setRepos] = useState([]);
+const { data: session } = useSession();
+const [repos, setRepos] = useState<Repository[]>([]);
 	const [selectedRepo, setSelectedRepo] = useState("");
-	const [description, setDescription] = useState("");
+	const [price, setPrice] = useState("");
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState("");
 	const [success, setSuccess] = useState(false);
 
 	useEffect(() => {
 		async function fetchRepos() {
-			console.log("Session object:", session);
 			setLoading(true);
 			setError("");
 			try {
-				const res = await fetch("/api/github/repos", { credentials: "include" });
-				console.log("GitHub API fetch response:", res);
+				// The API route now uses the session for the access token
+				const res = await fetch("/api/github/repos");
+				console.log("Response from /api/github/repos:", res);
 				if (!res.ok) {
 					setError("Failed to fetch repositories");
 					setRepos([]);
-					const errorText = await res.text();
-					console.error("GitHub API error response:", errorText);
 				} else {
 					const data = await res.json();
 					setRepos(data);
-					console.log("Fetched repositories:", data);
 				}
 			} catch (err) {
 				setError("Network error");
 				setRepos([]);
-				console.error("Network error while fetching repos:", err);
 			} finally {
 				setLoading(false);
 			}
@@ -56,28 +48,54 @@ function RegisterRepositoryPageInner() {
 		fetchRepos();
 	}, [session]);
 
-	async function handleSubmit(e) {
+	async function handleSubmit(e: { preventDefault: () => void }) {
 		e.preventDefault();
 		setLoading(true);
 		setError("");
 		setSuccess(false);
 		try {
-			// TODO: Replace with real user ID from session or authentication context
-			const ownerId = session?.user?.id;
 			const repo = repos.find(r => r.full_name === selectedRepo);
-			const name = repo ? repo.name : "";
-			const res = await fetch("/api/repository", {
+			if (!repo) {
+				setError("No repository selected");
+				setLoading(false);
+				return;
+			}
+			// Fetch code from GitHub API route
+			const [owner, repoName] = repo.full_name.split("/");
+			const codeRes = await fetch(`/api/github/repos/${repoName}?owner=${owner}`);
+			if (!codeRes.ok) {
+				const errData = await codeRes.json();
+				setError(errData.error || "Failed to fetch repository code");
+				setLoading(false);
+				return;
+			}
+			const codeData = await codeRes.json();
+			let code = "";
+			if (codeData.type === "file") {
+				code = codeData.content;
+			} else if (codeData.type === "dir" && Array.isArray(codeData.contents)) {
+				// For MVP, concatenate all file names in root (or extend to fetch each file's content)
+				code = codeData.contents.map((f: any) => f.name).join(", ");
+			} else {
+				code = JSON.stringify(codeData);
+			}
+			// Send to register API
+			const registerRes = await fetch("/api/repository/register", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ name, description, ownerId }),
+				body: JSON.stringify({
+					repoName: repo.full_name,
+					amount: price,
+					code,
+				}),
 			});
-			if (!res.ok) {
-				const data = await res.json();
-				setError(data.error || "Failed to register repository");
+			if (!registerRes.ok) {
+				const err = await registerRes.json();
+				setError(err.error || "Failed to register repository");
 			} else {
 				setSuccess(true);
 				setSelectedRepo("");
-				setDescription("");
+				setPrice("");
 			}
 		} catch (err) {
 			setError("Network error");
@@ -101,18 +119,60 @@ function RegisterRepositoryPageInner() {
 					<form className="space-y-6" onSubmit={handleSubmit}>
 						<div>
 							<label className="block text-foreground/70 mb-1 font-medium">Select Repository</label>
-							{/* Repository select input and other form elements go here */}
+							<select
+								className="w-full mt-1 p-2 border rounded bg-background text-foreground"
+								value={selectedRepo}
+								onChange={e => setSelectedRepo(e.target.value)}
+								required
+								disabled={loading || repos.length === 0}
+							>
+								<option value="" disabled>
+									{loading ? "Loading repositories..." : "Select a repository"}
+								</option>
+								{repos.map(repo => (
+									<option key={repo.id} value={repo.full_name}>
+										{repo.full_name}
+									</option>
+								))}
+							</select>
+						</div>
+						<div>
+							<label className="block text-foreground/70 mb-1 font-medium">Repository Price</label>
+							<input
+								type="number"
+								className="w-full mt-1 p-2 border rounded bg-background text-foreground"
+								placeholder="Enter price"
+								min="0"
+								step="0.01"
+								value={price}
+								onChange={e => setPrice(e.target.value)}
+								required
+								disabled={loading}
+							/>
 						</div>
 						{/* ...other form fields... */}
 						{/* You can add instructions or info here if needed */}
-					</form>
-						</div>
-					</main>
+							<button
+								type="submit"
+								className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded font-semibold hover:bg-primary/90 disabled:opacity-50"
+								disabled={loading || !selectedRepo}
+							>
+								{loading ? (
+									<span>Registering...</span>
+								) : (
+									<>
+										<PlusCircle className="w-5 h-5" /> Register Repository
+									</>
+								)}
+							</button>
+						</form>
 				</div>
-			);
+			</main>
+		</div>
+	);
 }
 
-export default function RegisterRepositoryPage(props) {
+export default function RegisterRepositoryPage(props: JSX.IntrinsicAttributes) {
 	return <RegisterRepositoryPageInner {...props} />;
 }
 

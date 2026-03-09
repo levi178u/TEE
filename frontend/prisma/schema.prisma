@@ -91,3 +91,11 @@ model VerificationToken {
 
   @@unique([identifier, token])
 }
+
+model Code {
+  id        String   @id @default(uuid())
+  repoName  String
+  amount    Float
+  code      String   @db.Text
+  createdAt DateTime @default(now())
+}
