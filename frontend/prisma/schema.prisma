@@ -95,6 +95,7 @@ model VerificationToken {
 model Code {
   id        String     @id @default(uuid())
   repoName  String
+  subscription Boolean @default(false)
   amount    Float
   codeBases CodeBase[]
   createdAt DateTime   @default(now())
