@@ -1,0 +1,104 @@
+{
+  "model": "sentence-transformers/all-MiniLM-L6-v2",
+  "total": 7,
+  "chunks": [
+    {
+      "text": "import NextAuth from \"next-auth\";\nimport GithubProvider from \"next-auth/providers/github\";\nimport GoogleProvider from \"next-auth/providers/google\";\nimport CredentialsProvider from \"next-auth/providers/credentials\";\nimport { PrismaAdapter } from \"@auth/prisma-adapter\";\nimport { prisma } from \"./prisma\";\nimport bcrypt from \"bcryptjs\";",
+      "metadata": {
+        "codebase_id": "e213d90c-76fc-40eb-a7ba-92e0b1d58163",
+        "code_id": "cada7e4a-d59a-4611-aff1-165872c24e5b",
+        "repo_name": "next-saas-starter",
+        "language": "TypeScript",
+        "filename": "auth.ts",
+        "route": "/lib/auth.ts",
+        "source": "/lib/auth.ts/auth.ts",
+        "created_at": "2026-03-20T15:38:54.953000"
+      },
+      "chunk_hash": "e2c3184b70d34687330142303cef5a1e"
+    },
+    {
+      "text": "t-auth/providers/credentials\";\nimport { PrismaAdapter } from \"@auth/prisma-adapter\";\nimport { prisma } from \"./prisma\";\nimport bcrypt from \"bcryptjs\";export const { handlers, auth, signIn, signOut } = NextAuth({\n  adapter: PrismaAdapter(prisma),\n  providers: [\n    GithubProvider({ clientId: process.env.GITHUB_ID!, clientSecret: process.env.GITHUB_SECRET! }),\n    GoogleProvider({ clientId: process.env.GOOGLE_ID!, clientSecret: process.env.GOOGLE_SECRET! }),\n    CredentialsProvider({\n      name: \"credentials\",\n      credentials: { email: {}, password: { type: \"password\" } },\n      async authorize(credentials) {\n        const user = await prisma.user.findUnique({ where: { email: credentials.email as string } });\n        if (!user?.password) return null;\n        return await bcrypt.compare(credentials.password as string, user.password) ? user : null;\n      },\n    }),\n  ],\n  session: { strategy: \"jwt\" },\n  pages: { signIn: \"/login\" },\n});",
+      "metadata": {
+        "codebase_id": "e213d90c-76fc-40eb-a7ba-92e0b1d58163",
+        "code_id": "cada7e4a-d59a-4611-aff1-165872c24e5b",
+        "repo_name": "next-saas-starter",
+        "language": "TypeScript",
+        "filename": "auth.ts",
+        "route": "/lib/auth.ts",
+        "source": "/lib/auth.ts/auth.ts",
+        "created_at": "2026-03-20T15:38:54.953000"
+      },
+      "chunk_hash": "914511a22a6919910f6d0f373f739dcc"
+    },
+    {
+      "text": "import { PrismaClient } from \"@prisma/client\";\n\nconst globalForPrisma = globalThis as unknown as { prisma: PrismaClient | undefined };\n\nexport const prisma =\n  globalForPrisma.prisma ??\n  new PrismaClient({ log: process.env.NODE_ENV === \"development\" ? [\"query\", \"warn\", \"error\"] : [\"error\"] });\n\nif (process.env.NODE_ENV !== \"production\") globalForPrisma.prisma = prisma;",
+      "metadata": {
+        "codebase_id": "7519e1f0-1c5c-4ed6-a3ce-5a3029eb8abd",
+        "code_id": "cada7e4a-d59a-4611-aff1-165872c24e5b",
+        "repo_name": "next-saas-starter",
+        "language": "TypeScript",
+        "filename": "prisma.ts",
+        "route": "/lib/prisma.ts",
+        "source": "/lib/prisma.ts/prisma.ts",
+        "created_at": "2026-03-20T15:38:54.953000"
+      },
+      "chunk_hash": "634857a037de70a461bf97706052afce"
+    },
+    {
+      "text": "import { auth } from \"@/lib/auth\";\nimport { redirect } from \"next/navigation\";\nimport { prisma } from \"@/lib/prisma\";\n\nexport default async function DashboardPage() {\n  const session = await auth();\n  if (!session?.user?.email) redirect(\"/login\");\n\n  const user = await prisma.user.findUnique({\n    where: { email: session.user.email },\n    include: { repositories: { orderBy: { updatedAt: \"desc\" }, take: 5 } },\n  });",
+      "metadata": {
+        "codebase_id": "d0a308b2-c5da-4e69-b964-9866e79f51f9",
+        "code_id": "cada7e4a-d59a-4611-aff1-165872c24e5b",
+        "repo_name": "next-saas-starter",
+        "language": "TypeScript",
+        "filename": "page.tsx",
+        "route": "/app/dashboard/page.tsx",
+        "source": "/app/dashboard/page.tsx/page.tsx",
+        "created_at": "2026-03-20T15:38:54.953000"
+      },
+      "chunk_hash": "692b845c0369948e605dbf42a3aebe87"
+    },
+    {
+      "text": "t prisma.user.findUnique({\n    where: { email: session.user.email },\n    include: { repositories: { orderBy: { updatedAt: \"desc\" }, take: 5 } },\n  });  return (\n    <main className=\"p-8 max-w-4xl mx-auto\">\n      <h1 className=\"text-3xl font-bold mb-6\">Welcome, {user?.name}</h1>\n      {user?.repositories.map(repo => (\n        <div key={repo.id} className=\"border rounded-lg p-4 mb-3\">\n          <h3 className=\"font-medium\">{repo.name}</h3>\n          <p className=\"text-sm text-gray-500\">{repo.description}</p>\n        </div>\n      ))}\n    </main>\n  );\n}",
+      "metadata": {
+        "codebase_id": "d0a308b2-c5da-4e69-b964-9866e79f51f9",
+        "code_id": "cada7e4a-d59a-4611-aff1-165872c24e5b",
+        "repo_name": "next-saas-starter",
+        "language": "TypeScript",
+        "filename": "page.tsx",
+        "route": "/app/dashboard/page.tsx",
+        "source": "/app/dashboard/page.tsx/page.tsx",
+        "created_at": "2026-03-20T15:38:54.953000"
+      },
+      "chunk_hash": "9c8d1cce170b43c615a1383c6121fde6"
+    },
+    {
+      "text": "@tailwind base;\n@tailwind components;\n@tailwind utilities;\n\n:root {\n  --background: 0 0% 100%;\n  --foreground: 222.2 84% 4.9%;\n  --primary: 221.2 83.2% 53.3%;\n}\n\n@layer base {\n  body { @apply bg-background text-foreground; }\n}",
+      "metadata": {
+        "codebase_id": "badd6ac3-da07-4b86-b6dd-10c371db0d37",
+        "code_id": "cada7e4a-d59a-4611-aff1-165872c24e5b",
+        "repo_name": "next-saas-starter",
+        "language": "CSS",
+        "filename": "globals.css",
+        "route": "/app/globals.css",
+        "source": "/app/globals.css/globals.css",
+        "created_at": "2026-03-20T15:38:54.953000"
+      },
+      "chunk_hash": "a7de3edca8b92d88c75f07221c5a6034"
+    },
+    {
+      "text": "DATABASE_URL=postgresql://user:pass@localhost:5432/saasdb\nNEXTAUTH_URL=http://localhost:3000\nNEXTAUTH_SECRET=your-nextauth-secret\nGITHUB_ID=your-github-client-id\nGITHUB_SECRET=your-github-client-secret\nGOOGLE_ID=your-google-client-id\nGOOGLE_SECRET=your-google-client-secret",
+      "metadata": {
+        "codebase_id": "8d002cf2-f8a7-4747-a17d-76fe440a4c1e",
+        "code_id": "cada7e4a-d59a-4611-aff1-165872c24e5b",
+        "repo_name": "next-saas-starter",
+        "language": "JSON",
+        "filename": ".env.example",
+        "route": "/.env.example",
+        "source": "/.env.example/.env.example",
+        "created_at": "2026-03-20T15:38:54.953000"
+      },
+      "chunk_hash": "2e72f7e4310664f8519ca6e67113f957"
+    }
+  ]
+}
