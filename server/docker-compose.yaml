@@ -1,0 +1,60 @@
+# version: "3.9"
+# services:
+#   db:
+#     image: postgres:15
+#     environment:
+#       POSTGRES_PASSWORD: postgres
+#       POSTGRES_USER: postgres
+#       POSTGRES_DB: default
+#     ports:
+#       - "51214:5432"
+
+#   chatbot:
+#     build:
+#       context: .
+#       dockerfile: server/Dockerfile
+#     environment:
+#       DATABASE_URL: postgresql://postgres:postgres@db:5432/default
+#       # Uses the root .env for OPENAI_API_KEY / GROQ_API_KEY if you have them there.
+#       # You can also override here instead of relying on .env.
+#     ports:
+#       - "8000:8000"
+#     depends_on:
+#       - db
+
+services:
+  # The PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: chatbot-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: chatbotdb
+    ports:
+      - "51214:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # The Python FastAPI Chatbot Server
+  backend:
+    build: .
+    container_name: chatbot-backend
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      # Use the Docker network service name 'db' and the matching credentials
+      - DATABASE_URL=postgresql://myuser:mypassword@db:5432/chatbotdb
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-sentence-transformers/all-MiniLM-L6-v2}
+    depends_on:
+      - db
+    volumes:
+      - .:/app 
+      - faiss_data:/app/faiss_index 
+
+volumes:
+  postgres_data:
+  faiss_data:
